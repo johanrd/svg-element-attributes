@@ -23,6 +23,25 @@ test('svgElementAttributes', async function (t) {
     }
   )
 
+  await t.test(
+    'should not repeat global attributes per element',
+    async function () {
+      const globals = new Set(svgElementAttributes['*'])
+      const tagNames = Object.keys(svgElementAttributes)
+
+      for (const tagName of tagNames) {
+        if (tagName === '*') continue
+
+        for (const attribute of svgElementAttributes[tagName]) {
+          assert.ok(
+            !globals.has(attribute),
+            '`' + attribute + '` on `' + tagName + '` is already in `*`'
+          )
+        }
+      }
+    }
+  )
+
   await t.test('values', async function (t) {
     const tagNames = Object.keys(svgElementAttributes)
 
