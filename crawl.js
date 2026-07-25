@@ -57,6 +57,18 @@ for (const map of maps) {
   }
 }
 
+// SVG 2 lists presentation attributes separately from the per-element
+// attribute tables, so the crawls above never see them and SVG 2-only ones
+// such as `vector-effect` were missing entirely.
+// The ones crawled here are normatively supported on “Any element in the
+// SVG namespace” (see `requestSvg2PresentationAttributes`), so they belong
+// in `*`; add them before merging so they are not repeated per element.
+for (const attribute of presentation) {
+  if (!ignoreAttribute(attribute)) {
+    globals.add(attribute)
+  }
+}
+
 /** @type {InfoMap} */
 const merged = {}
 
@@ -79,18 +91,6 @@ for (const map of maps) {
 
       mergedAttributes.add(attribute)
     }
-  }
-}
-
-// SVG 2 lists presentation attributes separately from the per-element
-// attribute tables, so the crawls above never see them and SVG 2-only ones
-// such as `vector-effect` were missing entirely.
-// The ones crawled here are normatively supported on “Any element in the
-// SVG namespace” (see `requestSvg2PresentationAttributes`), so they belong
-// in `*`.
-for (const attribute of presentation) {
-  if (!ignoreAttribute(attribute)) {
-    globals.add(attribute)
   }
 }
 
