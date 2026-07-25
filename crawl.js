@@ -11,7 +11,13 @@ import {select, selectAll} from 'hast-util-select'
 import {toString} from 'hast-util-to-string'
 import {fetch} from 'undici'
 
-const maps = await Promise.all([requestSvg1(), requestSvgTiny(), requestSvg2()])
+const [svg1, svgTiny, svg2, presentation] = await Promise.all([
+  requestSvg1(),
+  requestSvgTiny(),
+  requestSvg2(),
+  requestSvg2PresentationAttributes()
+])
+const maps = [svg1, svgTiny, svg2]
 
 // Missing from the spec, see: svg-element-attributes#4 <https://github.com/w3c/svgwg/issues/803>
 maps[0].symbol.add('x').add('y').add('width').add('height')
@@ -73,6 +79,18 @@ for (const map of maps) {
 
       mergedAttributes.add(attribute)
     }
+  }
+}
+
+// SVG 2 lists presentation attributes separately from the per-element
+// attribute tables, so the crawls above never see them and SVG 2-only ones
+// such as `vector-effect` were missing entirely.
+// The ones crawled here are normatively supported on “Any element in the
+// SVG namespace” (see `requestSvg2PresentationAttributes`), so they belong
+// in `*`.
+for (const attribute of presentation) {
+  if (!ignoreAttribute(attribute)) {
+    globals.add(attribute)
   }
 }
 
@@ -194,6 +212,40 @@ async function requestSvg2() {
   }
 
   return map
+}
+
+async function requestSvg2PresentationAttributes() {
+  const response = await fetch('https://www.w3.org/TR/SVG2/styling.html')
+  const text = await response.text()
+  const rows = selectAll('tr', fromHtml(text))
+  /** @type {Array<string>} */
+  const names = []
+
+  // The table in `styling.html#PresentationAttributes` normatively lists
+  // the elements that support each presentation attribute; take the rows
+  // whose element cell says “Any element in the SVG namespace”: the long
+  // row of regular presentation attributes, and `fill` and `transform`,
+  // which have narrow exceptions (animation elements have a different
+  // `fill` attribute; `pattern` and gradients have prefixed `*Transform`
+  // attributes, which the attribute index lists per element).
+  for (const row of rows) {
+    const cells = selectAll('td', row)
+
+    if (
+      cells.length > 1 &&
+      toString(cells[1]).includes('Any element in the SVG namespace')
+    ) {
+      for (const property of selectAll('.property', cells[0])) {
+        names.push(toString(property))
+      }
+    }
+  }
+
+  if (names.length === 0) {
+    throw new Error('Couldn’t find presentation attributes in SVG 2')
+  }
+
+  return names
 }
 
 /**
